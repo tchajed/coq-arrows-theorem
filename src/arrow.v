@@ -74,15 +74,18 @@ Section voting.
 
   Implicit Types (C: constitution).
 
-  Record constitution_wf C :=
+  (* P1 and P2 are equivalent wrt the a b ordering *)
+  Definition iia_at P1 P2 a b :=
+    ∀ i, a ⪯[P1 !!! i] b = a ⪯[P2 !!! i] b.
+
+  Class constitution_wf C :=
     { constitution_unanimity: ∀ P a b,
         (∀ i, a ⪯[P !!! i] b) →
         C P a b;
       constitution_iia: ∀ P1 P2 a b,
         (* P1 and P2 have the same ordering of c1 and c2 (but irrelevant
         alternatives may have different rankings) *)
-        (∀ i, a ⪯[P1 !!! i] b =
-                a ⪯[P2 !!! i] b) →
+        iia_at P1 P2 a b →
         C P1 a b = C P2 a b;
     }.
 
@@ -236,8 +239,8 @@ Section voting.
     { move_vote_at : a ⪯[move_vote v c a] c;
       move_vote_others : ∀ x y, x ≠ c ∧ y ≠ c ∧ x ≠ a ∧ y ≠ a →
             x ⪯[move_vote v c a] y = x ⪯[v] y;
-      move_vote_below : ∀ x, x ⪯[v] c → x ⪯[move_vote v c a] c;
-      move_vote_above : ∀ y, a ⪯[v] y → a ⪯[move_vote v c a] y;
+      move_vote_below_c : ∀ x, x ⪯[v] c → x ⪯[move_vote v c a] c;
+      move_vote_above_a : ∀ y, a ⪯[v] y → a ⪯[move_vote v c a] y;
     }.
 
   Instance move_vote_characterize_ok (v: Vote) c a :
@@ -260,6 +263,36 @@ Section voting.
   Definition move_c_before_a P c a : profile :=
     vmap (λ v, move_vote v c a) P.
 
+  Lemma move_c_before_a_lookup P c a i :
+    move_c_before_a P c a !!! i = move_vote (P !!! i) c a.
+  Proof.
+    rewrite /move_c_before_a vlookup_map //.
+  Qed.
+
+  Lemma order_both_false (v1 v2: Vote) a b :
+    b ⪯[v1] a →
+    b ⪯[v2] a →
+    a ⪯[v1] b = a ⪯[v2] b.
+  Proof using Heq.
+    intros.
+    destruct (decide (a = b)); subst; [ rewrite !vote_refl_eq // | ].
+    pose proof (vote_antisym v1 b a).
+    pose proof (vote_antisym v2 b a).
+    decide_vote v1 a b; intuition auto.
+    decide_vote v2 a b; intuition auto.
+  Qed.
+
+  Lemma order_both_true (v1 v2: Vote) a b :
+    a ⪯[v1] b →
+    a ⪯[v2] b →
+    a ⪯[v1] b = a ⪯[v2] b.
+  Proof.
+    rewrite /Is_true.
+    intros.
+    destruct (a ⪯[v1] b); intuition.
+    destruct (a ⪯[v2] b); intuition.
+  Qed.
+
   Lemma polarizing_prefs_polarizing C (Hwf: constitution_wf C) :
     ∀ P (b: A),
     (∀ i, polarizing_vote (P !!! i) b) →
@@ -267,10 +300,32 @@ Section voting.
   Proof.
     intros * Hpolar_voters.
     apply classical.not_not;
-      intros (a & c & Hne1 & Hne2 & Hab & Hbc)%not_polarizing_surround.
+      intros (c & a & Hne1 & Hne2 & Hcb & Hba)%not_polarizing_surround.
 
     (* need to construct a new profile P' from P that moves c above a in every
     profile *)
+
+    pose (P' := move_c_before_a P c a).
+    assert (a ⪯[C P'] c) as HP'ca.
+    { apply constitution_unanimity; intros.
+      subst P'.
+      rewrite move_c_before_a_lookup.
+      apply move_vote_at. }
+    assert (iia_at P P' a b).
+    { intros i. subst P'. rewrite move_c_before_a_lookup.
+      set (v := P !!! i).
+      destruct (Hpolar_voters i) as [Hi | Hi].
+      - apply order_both_false; [ by eauto | ].
+
+        (* apply (vote_trans _ _ c _); auto.
+        + apply move_vote_below_c; auto.
+        + apply move_vote_at. *)
+        admit.
+      - apply order_both_true; [ by eauto | ].
+        admit.
+    }
+
+    apply constitution_iia in H.
 
   Abort.
 
