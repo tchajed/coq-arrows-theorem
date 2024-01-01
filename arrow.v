@@ -42,6 +42,8 @@ Section voting.
 
   Definition arrows_thm := ∀ (C: constitution),
     constitution_wf C →
+    (* we have three distinct candidates *)
+    ∀ (A1 A2 A3: A) (Hne: A1 ≠ A2 ∧ A2 ≠ A3 ∧ A1 ≠ A3),
     ∃ n, ∀ b c1 c2, C b c1 c2 = vote_lt (b !!! n) c1 c2.
 
 End voting.
