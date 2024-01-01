@@ -152,7 +152,7 @@ Section voting.
     destruct (decide_vote v a c) as [[Hac1 Hac2] | (Hac1 & Hac2 & Hne)];
     try rewrite -> Hac1 in *.
 
-  Definition c_before_a_vote_le (v: Vote) c a (x y: A) : bool :=
+  Definition move_vote_le (v: Vote) c a (x y: A) : bool :=
     if a ⪯[v] c then x ⪯[v] y
     else
       (if decide (x = c) then
@@ -164,21 +164,21 @@ Section voting.
            x ⪯[v] a
          else x ⪯[v] y).
 
-  Lemma c_before_a_refl v (c a x : A) :
-    c_before_a_vote_le v c a x x.
+  Lemma move_refl v (c a x : A) :
+    move_vote_le v c a x x.
   Proof.
-    rewrite /c_before_a_vote_le.
+    rewrite /move_vote_le.
     pose proof (vote_refl v x).
     decide_vote v a c; auto.
     destruct (decide (x = c)); subst; eauto.
   Qed.
 
-  Lemma c_before_a_trans v (c a x y z : A) :
-      c_before_a_vote_le v c a x y →
-      c_before_a_vote_le v c a y z →
-      c_before_a_vote_le v c a x z.
+  Lemma move_trans v (c a x y z : A) :
+      move_vote_le v c a x y →
+      move_vote_le v c a y z →
+      move_vote_le v c a x z.
     Proof.
-      rewrite /c_before_a_vote_le.
+      rewrite /move_vote_le.
       pose proof (vote_trans v x y z) as Hvtrans.
       intros H.
       destruct (a ⪯[v] c) eqn:?; [ by auto | ].
@@ -198,11 +198,11 @@ Section voting.
       apply not_vote_le; eauto.
     Qed.
 
-    Lemma c_before_a_antisym v (c a x y : A) :
+    Lemma move_antisym v (c a x y : A) :
       x ≠ y →
-      c_before_a_vote_le v c a x y ↔ ¬ c_before_a_vote_le v c a y x.
+      move_vote_le v c a x y ↔ ¬ move_vote_le v c a y x.
     Proof.
-      rewrite /c_before_a_vote_le.
+      rewrite /move_vote_le.
       intros Hne.
       pose proof (vote_antisym v x y ltac:(auto)).
       pose proof (vote_antisym v y x ltac:(auto)).
@@ -217,28 +217,48 @@ Section voting.
         pose proof (vote_refl v a). intuition eauto.
     Qed.
 
-  Definition move_c_before_a_vote (v: Vote) c a : Vote.
-    refine {| vote_le := c_before_a_vote_le v c a |}.
-    - (* refl *)
-      apply c_before_a_refl.
-    - (* trans *)
-      apply c_before_a_trans.
-    - (* antisym *)
-      apply c_before_a_antisym.
+  (** changes a vote to move c before a but leave other relative rankings the
+  same *)
+  Definition move_vote (v: Vote) c a : Vote.
+    refine {| vote_le := move_vote_le v c a |}.
+    - apply move_refl.
+    - apply move_trans.
+    - apply move_antisym.
   Defined.
 
-  Lemma move_c_before_a_characterize (v: Vote) c a :
-    a ⪯[move_c_before_a_vote v c a] c.
+  Lemma vote_refl_eq (v: Vote) a :
+    vote_le v a a = true.
+  Proof using Heq.
+    decide_vote v a a; auto.
+  Qed.
+
+  Class move_vote_characterize (v: Vote) c a :=
+    { move_vote_at : a ⪯[move_vote v c a] c;
+      move_vote_others : ∀ x y, x ≠ c ∧ y ≠ c ∧ x ≠ a ∧ y ≠ a →
+            x ⪯[move_vote v c a] y = x ⪯[v] y;
+      move_vote_below : ∀ x, x ⪯[v] c → x ⪯[move_vote v c a] c;
+      move_vote_above : ∀ y, a ⪯[v] y → a ⪯[move_vote v c a] y;
+    }.
+
+  Instance move_vote_characterize_ok (v: Vote) c a :
+    move_vote_characterize v c a.
   Proof.
-    rewrite /move_c_before_a_vote /= /c_before_a_vote_le.
     decide_vote v a c; auto.
-    destruct (decide (a = c)); [ congruence | ].
-    destruct (decide (c = c)); [ | congruence ].
-    auto using vote_refl.
+    - constructor; rewrite /move_vote /= /move_vote_le;
+        rewrite Hac1 //.
+    - constructor; rewrite /move_vote /= /move_vote_le;
+        rewrite Hac1 //; intros;
+        repeat rewrite (@decide_True _ (c = c)) //.
+      + rewrite (@decide_False _ (a = c)) //.
+        auto using vote_refl.
+      + destruct_and!.
+        rewrite ?decide_False //.
+      + repeat destruct (decide _); subst; eauto using vote_trans.
+      + repeat destruct (decide _); subst; eauto using vote_trans.
   Qed.
 
   Definition move_c_before_a P c a : profile :=
-    vmap (λ v, move_c_before_a_vote v c a) P.
+    vmap (λ v, move_vote v c a) P.
 
   Lemma polarizing_prefs_polarizing C (Hwf: constitution_wf C) :
     ∀ P (b: A),
