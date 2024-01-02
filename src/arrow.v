@@ -40,6 +40,15 @@ Module classical.
 
 End classical.
 
+Ltac simplify_decide :=
+  repeat
+    match goal with
+    | |- context[decide ?P] =>
+        first [ rewrite -> (decide_True (P:=P)) by auto
+              | rewrite -> (decide_False (P:=P)) by auto
+          ]
+    end.
+
 Section voting.
 
   (* every element of A ("alternative") is a candidate *)
@@ -280,11 +289,9 @@ Section voting.
         rewrite Hac1 //.
     - constructor; rewrite /move_vote /= /move_vote_le;
         rewrite Hac1 //; intros;
-        repeat rewrite (@decide_True _ (c = c)) //.
-      + rewrite (@decide_False _ (a = c)) //.
-        auto using vote_refl.
-      + destruct_and!.
-        rewrite ?decide_False //.
+        destruct_and?;
+        simplify_decide; auto.
+      + auto using vote_refl.
       + repeat destruct (decide _); subst; eauto using vote_trans.
       + repeat destruct (decide _); subst; eauto using vote_trans.
   Qed.
@@ -321,15 +328,6 @@ Section voting.
     destruct (a ⪯[v1] b); intuition.
     destruct (a ⪯[v2] b); intuition.
   Qed.
-
-  Ltac simplify_decide :=
-    repeat
-      match goal with
-      | |- context[decide ?P] =>
-          first [ rewrite -> (decide_True (P:=P)) by auto
-                | rewrite -> (decide_False (P:=P)) by auto
-            ]
-      end.
 
   Lemma polarizing_prefs_polarizing C (Hwf: constitution_wf C) :
     ∀ P (b: A),
