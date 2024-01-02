@@ -1,11 +1,8 @@
-From Coq Require Import ssreflect.
-From Coq Require Import Permutation.
-From Coq Require Logic.Classical.
-From stdpp Require Import prelude vector.
+From arrow Require Import options.
 
-Set Default Proof Using "Type".
-Set Default Goal Selector "!".
-Open Scope general_if_scope.
+From Coq Require Logic.Classical.
+From stdpp Require Import ssreflect.
+From stdpp Require Import prelude vector.
 
 Module classical.
   Import Coq.Logic.Classical.
