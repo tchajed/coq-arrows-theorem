@@ -3,4 +3,5 @@
 src/arrow.v
 src/classical.v
 src/options.v
+src/spec.v
 src/tactics.v

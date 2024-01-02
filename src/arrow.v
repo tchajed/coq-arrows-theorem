@@ -1,8 +1,9 @@
 From arrow Require Import options.
 
+From stdpp Require Import vector ssreflect.
+
+From arrow Require Import spec tactics.
 From arrow Require classical.
-From stdpp Require Import prelude ssreflect vector.
-From arrow Require Import tactics.
 
 Section voting.
 
@@ -10,18 +11,15 @@ Section voting.
   Context {A: Type}.
   Context {Heq: EqDecision A}.
 
-  Record Vote :=
-    { vote_le : A → A → bool;
-      vote_refl : ∀ x, vote_le x x;
-      vote_trans : ∀ x y z,
-        vote_le x y → vote_le y z → vote_le x z;
-      vote_antisym : ∀ x y,
-        x ≠ y →
-        vote_le x y ↔ ¬(vote_le y x); }.
-  Coercion vote_le : Vote >-> Funclass.
+  Context (Nvoters: nat).
 
-  Notation "c1 '⪯[' v ']' c2" := (vote_le v c1 c2) (at level 40,
-                                     format "c1  ⪯[ v ]  c2").
+  Notation Vote := (Vote A).
+  Notation profile := (profile A Nvoters).
+  Notation constitution := (constitution A Nvoters).
+
+  (* a, b, c are candidates, i, j, n are voters *)
+  Implicit Types (a b c: A) (i j n: fin Nvoters).
+  Implicit Types (v: Vote) (P: profile) (C: constitution).
 
   Lemma vote_antisym' (v: Vote) x y :
     x ⪯[v] y → y ⪯[v] x → x = y.
@@ -30,76 +28,6 @@ Section voting.
     destruct (decide (x = y)); auto.
     pose proof (vote_antisym v x y ltac:(auto)).
     intuition.
-  Qed.
-
-  Context (Nvoters: nat).
-
-  Definition profile := vec Vote Nvoters.
-
-  Implicit Types (v: Vote) (P: profile).
-  (* a, b, c are candidates, i, j, n are voters *)
-  Implicit Types (a b c: A) (i j n: fin Nvoters).
-
-  (* constitution must be a total function from all profiles to a "vote" (a
-  ranking of all candidates) *)
-  Definition constitution := profile → Vote.
-
-  Implicit Types (C: constitution).
-
-  (* P1 and P2 are equivalent wrt the a b ordering *)
-  Definition iia_at P1 P2 a b :=
-    ∀ i, a ⪯[P1 !!! i] b = a ⪯[P2 !!! i] b.
-
-  Lemma iia_at_sym1 P1 P2 a b :
-    iia_at P1 P2 a b → iia_at P1 P2 b a.
-  Proof.
-    rewrite /iia_at.
-    destruct (classical.excluded_middle (a = b)); subst; first by eauto.
-    intros Hi i.
-    specialize (Hi i).
-    set (v1 := P1 !!! i) in *. set (v2 := P2 !!! i) in *.
-    pose proof (vote_antisym v1 a b ltac:(auto)) as Hv1.
-    pose proof (vote_antisym v2 a b ltac:(auto)) as Hv2.
-    rewrite Hi in Hv1.
-    destruct (b ⪯[v1] a), (b ⪯[v2] a); intuition auto.
-    exfalso; intuition.
-  Qed.
-
-  Lemma iia_at_sym P1 P2 a b :
-    iia_at P1 P2 a b ↔ iia_at P1 P2 b a.
-  Proof.
-    intuition eauto using iia_at_sym1.
-  Qed.
-
-  Class constitution_wf C :=
-    { constitution_unanimity: ∀ P a b,
-        (∀ i, a ⪯[P !!! i] b) →
-        C P a b;
-      constitution_iia: ∀ P1 P2 a b,
-        (* P1 and P2 have the same ordering of c1 and c2 (but irrelevant
-        alternatives may have different rankings) *)
-        iia_at P1 P2 a b →
-        C P1 a b = C P2 a b;
-    }.
-
-  Definition arrows_thm := ∀ C, constitution_wf C →
-    (* we have three distinct candidates *)
-    ∀ (A1 A2 A3: A) (Hne: A1 ≠ A2 ∧ A2 ≠ A3 ∧ A1 ≠ A3),
-    ∃ n, ∀ P a b, C P a b = a ⪯[P !!! n] b.
-
-  (* b is polarizing for vote v if it is at the top or bottom *)
-  Definition polarizing_vote (v: Vote) (b: A) :=
-    (∀ c', b ⪯[v] c') ∨ (∀ c', c' ⪯[v] b).
-
-  Lemma Is_true_elim (b: bool) :
-    Is_true b ↔ b = true.
-  Proof.
-    destruct b; rewrite /Is_true /=; intuition (try congruence).
-  Qed.
-  Lemma Is_true_not_elim (b: bool) :
-    ~Is_true b ↔ b = false.
-  Proof.
-    destruct b; rewrite /Is_true /=; intuition (try congruence).
   Qed.
 
   Lemma not_vote_le (v: Vote) (a b: A) :
@@ -123,6 +51,23 @@ Section voting.
     rewrite Hab; auto.
   Qed.
 
+  Ltac decide_vote v a c :=
+    let Hac1 := fresh "H" a c "1" in
+    let Hac2 := fresh "H" a c "2" in
+    let Hne := fresh "Hne" in
+    destruct (decide_vote v a c) as [[Hac1 Hac2] | (Hac1 & Hac2 & Hne)];
+    try rewrite -> Hac1 in *.
+
+  Lemma vote_refl_eq (v: Vote) a :
+    vote_le v a a = true.
+  Proof.
+    decide_vote v a a; auto.
+  Qed.
+
+  (* b is polarizing for vote v if it is at the top or bottom *)
+  Definition polarizing_vote (v: Vote) (b: A) :=
+    (∀ c', b ⪯[v] c') ∨ (∀ c', c' ⪯[v] b).
+
   Lemma not_polarizing_surround (v: Vote) (b: A) :
     ~polarizing_vote v b →
     ∃ a c, a ≠ b ∧ b ≠ c ∧ a ⪯[v] b ∧ b ⪯[v] c.
@@ -134,19 +79,9 @@ Section voting.
     exists a, c; intuition.
   Qed.
 
-  Lemma vote_refl_true (v: Vote) a :
-    a ⪯[v] a ↔ True.
-  Proof.
-    split; intuition.
-    apply vote_refl.
-  Qed.
-
-  Ltac decide_vote v a c :=
-    let Hac1 := fresh "H" a c "1" in
-    let Hac2 := fresh "H" a c "2" in
-    let Hne := fresh "Hne" in
-    destruct (decide_vote v a c) as [[Hac1 Hac2] | (Hac1 & Hac2 & Hne)];
-    try rewrite -> Hac1 in *.
+  (** We need to develop a way to re-arrange a vote. The low-level tool for this
+  is a function which moves c to be above a in the ordering, changing as little
+  else as possible. *)
 
   Definition move_vote_le (v: Vote) c a (x y: A) : bool :=
     if a ⪯[v] c then x ⪯[v] y
@@ -170,48 +105,48 @@ Section voting.
   Qed.
 
   Lemma move_trans v (c a x y z : A) :
-      move_vote_le v c a x y →
-      move_vote_le v c a y z →
-      move_vote_le v c a x z.
-    Proof.
-      rewrite /move_vote_le.
-      pose proof (vote_trans v x y z) as Hvtrans.
-      intros H.
-      destruct (a ⪯[v] c) eqn:?; [ by auto | ].
-      assert (¬a ⪯[v] c) as Hca.
-      { intros H'.
-        rewrite Heqb in H'; auto. }
-      apply not_vote_le in Hca as [Hca Hne].
-      repeat
-        destruct (decide _)
-        || lazymatch goal with
-          | H: context[decide ?P] |- _ => destruct (decide P)
-          end
-        || subst
-        || eauto using vote_trans.
-      intros.
-      contradict H.
-      apply not_vote_le; eauto.
-    Qed.
+    move_vote_le v c a x y →
+    move_vote_le v c a y z →
+    move_vote_le v c a x z.
+  Proof.
+    rewrite /move_vote_le.
+    pose proof (vote_trans v x y z) as Hvtrans.
+    intros H.
+    destruct (a ⪯[v] c) eqn:?; [ by auto | ].
+    assert (¬a ⪯[v] c) as Hca.
+    { intros H'.
+      rewrite Heqb in H'; auto. }
+    apply not_vote_le in Hca as [Hca Hne].
+    repeat
+      destruct (decide _)
+      || lazymatch goal with
+      | H: context[decide ?P] |- _ => destruct (decide P)
+      end
+      || subst
+      || eauto using vote_trans.
+    intros.
+    contradict H.
+    apply not_vote_le; eauto.
+  Qed.
 
-    Lemma move_antisym v (c a x y : A) :
-      x ≠ y →
-      move_vote_le v c a x y ↔ ¬ move_vote_le v c a y x.
-    Proof.
-      rewrite /move_vote_le.
-      intros Hne.
-      pose proof (vote_antisym v x y ltac:(auto)).
-      pose proof (vote_antisym v y x ltac:(auto)).
-      decide_vote v a c; eauto using vote_antisym.
-      destruct (decide (x = c));
-        destruct (decide (y = c));
-        subst;
-        try solve [ intuition eauto ].
-      * destruct (decide (y = a)); subst; eauto using vote_antisym.
-        pose proof (vote_refl v a). intuition eauto.
-      * destruct (decide (x = a)); subst; eauto using vote_antisym.
-        pose proof (vote_refl v a). intuition eauto.
-    Qed.
+  Lemma move_antisym v (c a x y : A) :
+    x ≠ y →
+    move_vote_le v c a x y ↔ ¬ move_vote_le v c a y x.
+  Proof.
+    rewrite /move_vote_le.
+    intros Hne.
+    pose proof (vote_antisym v x y ltac:(auto)).
+    pose proof (vote_antisym v y x ltac:(auto)).
+    decide_vote v a c; eauto using vote_antisym.
+    destruct (decide (x = c));
+      destruct (decide (y = c));
+      subst;
+      try solve [ intuition eauto ].
+    * destruct (decide (y = a)); subst; eauto using vote_antisym.
+      pose proof (vote_refl v a). intuition eauto.
+    * destruct (decide (x = a)); subst; eauto using vote_antisym.
+      pose proof (vote_refl v a). intuition eauto.
+  Qed.
 
   (** changes a vote to move c before a but leave other relative rankings the
   same *)
@@ -221,12 +156,6 @@ Section voting.
     - apply move_trans.
     - apply move_antisym.
   Defined.
-
-  Lemma vote_refl_eq (v: Vote) a :
-    vote_le v a a = true.
-  Proof.
-    decide_vote v a a; auto.
-  Qed.
 
   Class move_vote_characterize (v: Vote) c a :=
     { move_vote_at : a ⪯[move_vote v c a] c;
@@ -240,15 +169,15 @@ Section voting.
     move_vote_characterize v c a.
   Proof.
     decide_vote v a c; auto.
-    - constructor; rewrite /move_vote /= /move_vote_le;
-        rewrite Hac1 //.
-    - constructor; rewrite /move_vote /= /move_vote_le;
-        rewrite Hac1 //; intros;
-        destruct_and?;
+    { constructor; rewrite /move_vote /= /move_vote_le;
+        rewrite Hac1 //. }
+    constructor; rewrite /move_vote /= /move_vote_le;
+      rewrite Hac1 //; intros;
+      destruct_and?;
         simplify_decide; auto.
-      + auto using vote_refl.
-      + repeat destruct (decide _); subst; eauto using vote_trans.
-      + repeat destruct (decide _); subst; eauto using vote_trans.
+    - auto using vote_refl.
+    - repeat destruct (decide _); subst; eauto using vote_trans.
+    - repeat destruct (decide _); subst; eauto using vote_trans.
   Qed.
 
   Definition move_c_before_a P c a : profile :=
