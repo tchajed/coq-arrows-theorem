@@ -1,4 +1,5 @@
 -Q . arrow
 
 src/arrow.v
+src/classical.v
 src/options.v
