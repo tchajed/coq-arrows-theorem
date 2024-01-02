@@ -14,8 +14,6 @@ jobs:
       matrix:
         coq_version:
           - "8.18"
-      max-parallel: 4
-      # don't cancel all in-progress jobs if one matrix job fails:
       fail-fast: false
 
     steps:
@@ -23,14 +21,9 @@ jobs:
       - uses: coq-community/docker-coq-action@v1
         with:
           coq_version: ${{ matrix.coq_version }}
-          ocaml_version: "4.14-flambda"
           opam_file: "coq-arrows-theorem.opam"
           before_script: |
             sudo chown -R coq:coq . # workaround a permission issue
-          script: |
-            startGroup Build
-              make -j2 -k
-            endGroup
       - name: Revert permissions
         # to avoid a warning at cleanup time
         if: ${{ always() }}
