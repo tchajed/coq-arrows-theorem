@@ -59,6 +59,14 @@ Section voting.
   Notation "c1 '⪯[' v ']' c2" := (vote_le v c1 c2) (at level 40,
                                      format "c1  ⪯[ v ]  c2").
 
+  Lemma vote_antisym' (v: Vote) x y :
+    x ⪯[v] y → y ⪯[v] x → x = y.
+  Proof using Heq.
+    intros.
+    destruct (decide (x = y)); auto.
+    pose proof (vote_antisym v x y ltac:(auto)).
+    intuition.
+  Qed.
 
   Context (Nvoters: nat).
 
@@ -77,6 +85,27 @@ Section voting.
   (* P1 and P2 are equivalent wrt the a b ordering *)
   Definition iia_at P1 P2 a b :=
     ∀ i, a ⪯[P1 !!! i] b = a ⪯[P2 !!! i] b.
+
+  Lemma iia_at_sym1 P1 P2 a b :
+    iia_at P1 P2 a b → iia_at P1 P2 b a.
+  Proof using Heq.
+    rewrite /iia_at.
+    destruct (decide (a = b)); subst; first by eauto.
+    intros.
+    specialize (H i).
+    set (v1 := P1 !!! i) in *. set (v2 := P2 !!! i) in *.
+    pose proof (vote_antisym v1 a b ltac:(auto)).
+    pose proof (vote_antisym v2 a b ltac:(auto)).
+    rewrite H in H0.
+    destruct (b ⪯[v1] a), (b ⪯[v2] a); intuition auto.
+    exfalso; intuition.
+  Qed.
+
+  Lemma iia_at_sym P1 P2 a b :
+    iia_at P1 P2 a b ↔ iia_at P1 P2 b a.
+  Proof using Heq.
+    intuition eauto using iia_at_sym1.
+  Qed.
 
   Class constitution_wf C :=
     { constitution_unanimity: ∀ P a b,
@@ -237,7 +266,7 @@ Section voting.
 
   Class move_vote_characterize (v: Vote) c a :=
     { move_vote_at : a ⪯[move_vote v c a] c;
-      move_vote_others : ∀ x y, x ≠ c ∧ y ≠ c ∧ x ≠ a ∧ y ≠ a →
+      move_vote_others : ∀ x y, x ≠ c ∧ y ≠ c →
             x ⪯[move_vote v c a] y = x ⪯[v] y;
       move_vote_below_c : ∀ x, x ⪯[v] c → x ⪯[move_vote v c a] c;
       move_vote_above_a : ∀ y, a ⪯[v] y → a ⪯[move_vote v c a] y;
@@ -293,14 +322,27 @@ Section voting.
     destruct (a ⪯[v2] b); intuition.
   Qed.
 
+  Ltac simplify_decide :=
+    repeat
+      match goal with
+      | |- context[decide ?P] =>
+          first [ rewrite -> (decide_True (P:=P)) by auto
+                | rewrite -> (decide_False (P:=P)) by auto
+            ]
+      end.
+
   Lemma polarizing_prefs_polarizing C (Hwf: constitution_wf C) :
     ∀ P (b: A),
     (∀ i, polarizing_vote (P !!! i) b) →
     polarizing_vote (C P) b.
-  Proof.
+  Proof using Heq.
     intros * Hpolar_voters.
     apply classical.not_not;
       intros (c & a & Hne1 & Hne2 & Hcb & Hba)%not_polarizing_surround.
+    assert (a ≠ c).
+    { intros ->. contradict Hba.
+      eapply vote_antisym; eauto. }
+    assert (c ⪯[C P] a) as Hca by eauto using vote_trans.
 
     (* need to construct a new profile P' from P that moves c above a in every
     profile *)
@@ -311,22 +353,31 @@ Section voting.
       subst P'.
       rewrite move_c_before_a_lookup.
       apply move_vote_at. }
-    assert (iia_at P P' a b).
+    assert (iia_at P P' b a) as Hiia_ab.
+    { intros i. subst P'. rewrite move_c_before_a_lookup.
+      set (v := P !!! i).
+      destruct (Hpolar_voters i) as [Hi | Hi].
+      - apply order_both_true; [ by eauto | ].
+        rewrite move_vote_others //.
+      - apply order_both_false; [ by eauto | ].
+        rewrite move_vote_others //. }
+    assert (iia_at P P' c b) as Hiia_bc.
     { intros i. subst P'. rewrite move_c_before_a_lookup.
       set (v := P !!! i).
       destruct (Hpolar_voters i) as [Hi | Hi].
       - apply order_both_false; [ by eauto | ].
-
-        (* apply (vote_trans _ _ c _); auto.
-        + apply move_vote_below_c; auto.
-        + apply move_vote_at. *)
-        admit.
+        apply move_vote_below_c; auto.
       - apply order_both_true; [ by eauto | ].
-        admit.
-    }
+        rewrite /move_vote /= /move_vote_le.
+        decide_vote v a c; auto.
+        simplify_decide; auto. }
 
-    apply constitution_iia in H.
-
-  Abort.
+    apply constitution_iia in Hiia_ab.
+    apply constitution_iia in Hiia_bc.
+    apply eq_bool_prop_elim in Hiia_ab, Hiia_bc.
+    intuition.
+    assert (c ⪯[C P'] a) by eauto using vote_trans.
+    eauto using vote_antisym'.
+  Qed.
 
 End voting.
