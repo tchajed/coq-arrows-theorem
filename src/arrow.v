@@ -97,22 +97,22 @@ Section voting.
 
   Lemma iia_at_sym1 P1 P2 a b :
     iia_at P1 P2 a b → iia_at P1 P2 b a.
-  Proof using Heq.
+  Proof.
     rewrite /iia_at.
-    destruct (decide (a = b)); subst; first by eauto.
-    intros.
-    specialize (H i).
+    destruct (classical.excluded_middle (a = b)); subst; first by eauto.
+    intros Hi i.
+    specialize (Hi i).
     set (v1 := P1 !!! i) in *. set (v2 := P2 !!! i) in *.
-    pose proof (vote_antisym v1 a b ltac:(auto)).
-    pose proof (vote_antisym v2 a b ltac:(auto)).
-    rewrite H in H0.
+    pose proof (vote_antisym v1 a b ltac:(auto)) as Hv1.
+    pose proof (vote_antisym v2 a b ltac:(auto)) as Hv2.
+    rewrite Hi in Hv1.
     destruct (b ⪯[v1] a), (b ⪯[v2] a); intuition auto.
     exfalso; intuition.
   Qed.
 
   Lemma iia_at_sym P1 P2 a b :
     iia_at P1 P2 a b ↔ iia_at P1 P2 b a.
-  Proof using Heq.
+  Proof.
     intuition eauto using iia_at_sym1.
   Qed.
 
@@ -149,20 +149,20 @@ Section voting.
 
   Lemma not_vote_le (v: Vote) (a b: A) :
     ¬(a ⪯[v] b) ↔ (b ⪯[v] a ∧ a ≠ b).
-  Proof using Heq.
+  Proof.
     pose proof (vote_refl v a) as Hrefl.
     pose proof (vote_antisym v b a) as Hanti1.
     pose proof (vote_antisym v a b) as Hanti2.
     split.
     - intros H.
-      destruct (decide (a = b)); subst; intuition.
+      destruct (classical.excluded_middle (a = b)); subst; intuition.
     - intuition.
   Qed.
 
   Lemma decide_vote (v: Vote) (a b: A) :
     {vote_le v a b = true ∧ a ⪯[v] b} +
       {vote_le v a b = false ∧ b ⪯[v] a ∧ a ≠ b}.
-  Proof using Heq.
+  Proof.
     destruct (a ⪯[v] b) eqn:Hab; [ left | right ]; auto.
     assert (¬ a ⪯[v] b) as H%not_vote_le; [ | by intuition eauto ].
     rewrite Hab; auto.
@@ -171,7 +171,7 @@ Section voting.
   Lemma not_polarizing_surround (v: Vote) (b: A) :
     ~polarizing_vote v b →
     ∃ a c, a ≠ b ∧ b ≠ c ∧ a ⪯[v] b ∧ b ⪯[v] c.
-  Proof using Heq.
+  Proof.
     rewrite /polarizing_vote.
     rewrite classical.not_or !classical.not_all.
     setoid_rewrite not_vote_le.
@@ -269,7 +269,7 @@ Section voting.
 
   Lemma vote_refl_eq (v: Vote) a :
     vote_le v a a = true.
-  Proof using Heq.
+  Proof.
     decide_vote v a a; auto.
   Qed.
 
@@ -309,9 +309,10 @@ Section voting.
     b ⪯[v1] a →
     b ⪯[v2] a →
     a ⪯[v1] b = a ⪯[v2] b.
-  Proof using Heq.
+  Proof.
     intros.
-    destruct (decide (a = b)); subst; [ rewrite !vote_refl_eq // | ].
+    destruct (classical.excluded_middle (a = b));
+      subst; [ rewrite !vote_refl_eq // | ].
     pose proof (vote_antisym v1 b a).
     pose proof (vote_antisym v2 b a).
     decide_vote v1 a b; intuition auto.
