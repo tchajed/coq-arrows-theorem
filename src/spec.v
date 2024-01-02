@@ -18,8 +18,8 @@ Section voting.
         vote_le x y ↔ ¬(vote_le y x); }.
   Coercion vote_le : Vote >-> Funclass.
 
-  Notation "c1 '⪯[' v ']' c2" := (vote_le v c1 c2) (at level 40,
-                                     format "c1  ⪯[ v ]  c2").
+  Notation "c1 '⪯[' v ']' c2" := (vote_le v c1 c2)
+                                   (at level 40, format "c1  ⪯[ v ]  c2").
 
   Context {Nvoters: nat}.
 
@@ -55,8 +55,8 @@ Section voting.
 
 End voting.
 
-Notation "c1 '⪯[' v ']' c2" := (vote_le v c1 c2) (at level 40,
-                                    format "c1  ⪯[ v ]  c2").
+Notation "c1 '⪯[' v ']' c2" := (vote_le v c1 c2)
+                                  (at level 40, format "c1  ⪯[ v ]  c2").
 
 Arguments Vote A : clear implicits.
 Arguments profile A Nvoters : clear implicits.

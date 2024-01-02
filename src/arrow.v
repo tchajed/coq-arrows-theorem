@@ -5,6 +5,9 @@ From stdpp Require Import vector ssreflect.
 From arrow Require Import spec tactics.
 From arrow Require classical.
 
+(* see https://rangevoting.org/WiedijkArrowMizar.pdf for notes on a Mizar
+formalization *)
+
 Section voting.
 
   (* every element of A ("alternative") is a candidate *)
@@ -16,6 +19,9 @@ Section voting.
   Notation Vote := (Vote A).
   Notation profile := (profile A Nvoters).
   Notation constitution := (constitution A Nvoters).
+
+  (* we need some arbitrary ordering of candidates to construct profiles *)
+  Context (vote0 : Vote).
 
   (* a, b, c are candidates, i, j, n are voters *)
   Implicit Types (a b c: A) (i j n: fin Nvoters).
@@ -262,5 +268,29 @@ Section voting.
     assert (c ⪯[C P'] a) by eauto using vote_trans.
     eauto using vote_antisym'.
   Qed.
+
+  Record dictator_profiles C b :=
+    { dictator_n: fin Nvoters;
+      dictator_pI: profile;
+      dictator_pII: profile;
+      dict_similar:
+      ∀ i, i ≠ dictator_n → dictator_pI !!! i = dictator_pII !!! i;
+      (* dictator_n puts b at bottom in I and top in II *)
+      dict_b_I:
+      ∀ a, b ⪯[dictator_pI !!! dictator_n] a;
+      dict_b_II:
+      ∀ a, a ⪯[dictator_pI !!! dictator_n] b;
+      dict_polarizing:
+      ∀ i, polarizing_vote (dictator_pI !!! i) b;
+      dict_b_C_I:
+      ∀ a, b ⪯[C dictator_pI] a;
+      dict_b_C_II:
+      ∀ a, a ⪯[C dictator_pI] b;
+    }.
+
+  Lemma dictator_profile_exists C {Hwf: constitution_wf C} b :
+    dictator_profiles C b.
+  Proof.
+  Abort.
 
 End voting.
