@@ -1,17 +1,8 @@
 From arrow Require Import options.
 
 From arrow Require classical.
-From stdpp Require Import ssreflect.
-From stdpp Require Import prelude vector.
-
-Ltac simplify_decide :=
-  repeat
-    match goal with
-    | |- context[decide ?P] =>
-        first [ rewrite -> (decide_True (P:=P)) by auto
-              | rewrite -> (decide_False (P:=P)) by auto
-          ]
-    end.
+From stdpp Require Import prelude ssreflect vector.
+From arrow Require Import tactics.
 
 Section voting.
 
