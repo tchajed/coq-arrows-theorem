@@ -25,6 +25,7 @@ jobs:
         with:
           coq_version: ${{ matrix.coq_version }}
           ocaml_version: "4.14-flambda"
+          opam_file: "coq-arrows-theorem.opam"
           before_script: |
             sudo chown -R coq:coq . # workaround a permission issue
           script: |

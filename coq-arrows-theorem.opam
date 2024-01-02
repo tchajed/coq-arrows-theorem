@@ -1,0 +1,32 @@
+opam-version: "2.0"
+maintainer: "tchajed@gmail.com"
+version: "dev"
+
+homepage: "https://github.com/tchajed/coq-arrows-theorem"
+dev-repo: "git+https://github.com/tchajed/coq-arrows-theorem.git"
+bug-reports: "https://github.com/tchajed/coq-arrows-theorem/issues"
+license: "MIT"
+
+synopsis: "Proof of Arrow's Impossibility Theorem"
+description: """
+Arrow's Impossibility Theorem says every voting system which respects unanimity
+and independence of irrelevant alternatives is a dictatorship.
+"""
+
+depends: [
+  "coq" {>= "8.18"}
+  "coq-stdpp" {>= "dev.2023-12-26.0.dd93e4c3" | (>= "1.9.0" & < "2.0") | = "dev"}
+]
+
+build: [make "-j%{jobs}%"]
+install: [make "install"]
+
+tags: [
+  "category:Miscellaneous"
+  "keyword:iris"
+  "logpath:arrow"
+]
+
+authors: [
+  "Tej Chajed"
+]
